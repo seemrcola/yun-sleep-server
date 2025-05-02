@@ -33,11 +33,21 @@ export class RoomController {
   }
 
   @Post('/getRoomById', { middleware: [JwtMiddleware] })
-  async getRoomById(@Body() body: { id: number }) {
-    const room = await this.roomService.getRoomById(body.id);
+  async getRoomById(@Body() body: { roomId: number }) {
+    const room = await this.roomService.getRoomById(body.roomId);
     return {
       success: true,
       message: '获取房间详情成功',
+      data: room
+    }
+  }
+
+  @Post('/leave', { middleware: [JwtMiddleware] })
+  async leave(@Body() body: { roomId: number }) {
+    const room = await this.roomService.leaveRoom(body.roomId);
+    return {
+      success: true,
+      message: '离开房间成功',
       data: room
     }
   }

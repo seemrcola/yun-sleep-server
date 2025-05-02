@@ -4,6 +4,7 @@ import { UserExistsError, UserOrPasswordError } from '../error/user.error';
 import { InjectDataSource } from '@midwayjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AuthUtil } from '../util/auth.util';
+import { Context } from '@midwayjs/koa';
 
 @Provide()
 export class UserService {
@@ -12,6 +13,9 @@ export class UserService {
 
   @Inject()
   authUtil: AuthUtil;
+
+  @Inject()
+  ctx: Context;
 
   async register(data: { username: string; password: string; nickname?: string }) {
     const userRepository = this.dataSource.getRepository(User);
@@ -69,5 +73,14 @@ export class UserService {
   async refreshToken(user: { userId: number; username: string }) {
     // 生成新的 token
     return this.authUtil.generateToken({ userId: user.userId, username: user.username });
+  }
+
+  async getUserInfo() {
+    const userRepository = this.dataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: this.ctx.state.user.userId }
+    });
+
+    return user;
   }
 }

@@ -12,6 +12,7 @@ export class JwtMiddleware {
     return async (ctx: Context, next: NextFunction) => {
       // 从请求头中获取 token
       const token = ctx.get('Authorization')?.replace('Bearer ', '');
+      console.log('token', token);
       
       if (!token) {
         throw new InvalidTokenError();

@@ -3,6 +3,7 @@ import { Context } from '@midwayjs/koa';
 import { UserService } from '../service/user.service';
 import { RegisterDTO, LoginDTO } from '../dto/user.dto';
 import { Validate } from '@midwayjs/validate';
+import { JwtMiddleware } from '../middleware/jwt.middleware';
 
 @Controller('/api/user')
 export class UserController {
@@ -38,5 +39,11 @@ export class UserController {
     // 由于使用的是 JWT，服务端不需要维护会话状态
     // 客户端需要自行删除 token
     return { success: true, message: '登出成功' };
+  }
+
+  @Post('/getUserInfo', { middleware: [JwtMiddleware] })
+  async getUserInfo() {
+    const user = await this.userService.getUserInfo();
+    return { success: true, message: '获取用户信息成功', data: user };
   }
 }

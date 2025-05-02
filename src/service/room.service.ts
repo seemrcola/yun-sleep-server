@@ -49,7 +49,7 @@ export class RoomService {
     user.roomId = newRoom.id;
     await userRepository.save(user);
 
-    return newRoom;
+    return { ...newRoom, id: newRoom.id };
   }
 
   async list() {
@@ -69,5 +69,52 @@ export class RoomService {
     }
 
     return room;
+  }
+
+  async leaveRoom(roomId: number) {
+    const roomRepository = this.dataSource.getRepository(Room);
+    const room = await roomRepository.findOne({
+      where: { id: roomId }
+    });
+
+    if(!room) {
+      throw new RoomNotFoundError();
+    } 
+
+    if(room.ownerId === this.ctx.state.user.userId) {
+      return this.deleteRoom(roomId);
+    }
+    
+    // 更新房间人数
+    room.current--;
+    await roomRepository.save(room);
+
+    // 更新用户关联
+    const userRepository = this.dataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: this.ctx.state.user.userId }
+    });
+    user.roomId = null;
+    await userRepository.save(user);
+
+    return room;
+  }
+
+  async deleteRoom(roomId: number) {
+    const roomRepository = this.dataSource.getRepository(Room);
+    const room = await roomRepository.findOne({
+      where: { id: roomId }
+    });
+
+    if(!room) {
+      throw new RoomNotFoundError();
+    } 
+
+    await roomRepository.delete(roomId);
+
+    return {
+      success: true,
+      message: '房间删除成功'
+    }
   }
 }
