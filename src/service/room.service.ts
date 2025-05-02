@@ -82,6 +82,7 @@ export class RoomService {
     } 
 
     if(room.ownerId === this.ctx.state.user.userId) {
+      // 如果房间主人离开，则删除房间
       return this.deleteRoom(roomId);
     }
     
@@ -110,7 +111,15 @@ export class RoomService {
       throw new RoomNotFoundError();
     } 
 
+    // 删除房间
     await roomRepository.delete(roomId);
+    // 删除房间关联
+    const userRepository = this.dataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: room.ownerId }
+    });
+    user.roomId = null;
+    await userRepository.save(user);
 
     return {
       success: true,
