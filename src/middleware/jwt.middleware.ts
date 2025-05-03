@@ -12,7 +12,6 @@ export class JwtMiddleware {
     return async (ctx: Context, next: NextFunction) => {
       // 从请求头中获取 token
       const token = ctx.get('Authorization')?.replace('Bearer ', '');
-      console.log('token', token);
       
       if (!token) {
         throw new InvalidTokenError();
@@ -20,6 +19,7 @@ export class JwtMiddleware {
 
       // 验证 token
       const payload = this.authUtil.verifyToken(token);
+      console.log('payload', payload);
       if (!payload) {
         throw new InvalidTokenError();
       }
