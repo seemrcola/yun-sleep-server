@@ -1,4 +1,4 @@
-import { Provide, Inject } from '@midwayjs/core';
+import { Provide, Inject, Scope, ScopeEnum } from '@midwayjs/core';
 import { User } from '../entity/user.entity';
 import { UserExistsError, UserOrPasswordError } from '../error/user.error';
 import { InjectDataSource } from '@midwayjs/typeorm';
@@ -7,6 +7,7 @@ import { AuthUtil } from '../util/auth.util';
 import { Context } from '@midwayjs/koa';
 
 @Provide()
+@Scope(ScopeEnum.Singleton)
 export class UserService {
   @InjectDataSource()
   dataSource: DataSource;

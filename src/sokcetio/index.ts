@@ -15,7 +15,7 @@
  * 2. 房间的用户列表
  */
 
-import { Provide, App, Inject } from '@midwayjs/core';
+import { Provide, App, Inject, Scope, ScopeEnum } from '@midwayjs/core';
 import { Application } from '@midwayjs/socketio';
 import { Socket } from 'socket.io';
 import { RoomService } from '../service/room.service';
@@ -57,6 +57,7 @@ const socketUserMap: Map<string, { userId: number, roomId: number, username: str
 const MAX_MESSAGES_HISTORY = 50;
 
 @Provide()
+@Scope(ScopeEnum.Singleton)
 export class SocketIoService {
   @App('socketIO')
   socketApp: Application;

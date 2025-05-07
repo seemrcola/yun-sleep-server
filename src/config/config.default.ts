@@ -21,7 +21,7 @@ export default {
     },
   },
   socketIO: {
-    port: 7001, // 使用与 HTTP 服务器相同的端口
+    port: 7002, // 使用与 HTTP 服务器相同的端口
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],

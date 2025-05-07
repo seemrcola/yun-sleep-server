@@ -1,4 +1,4 @@
-import { Provide, Inject } from '@midwayjs/core';
+import { Provide, Inject, Scope, ScopeEnum } from '@midwayjs/core';
 import { Room } from '../entity/room.entity';
 import { User } from '../entity/user.entity';
 import { InjectDataSource } from '@midwayjs/typeorm';
@@ -8,6 +8,7 @@ import { AuthUtil } from '../util/auth.util';
 import { UserAlreadyInRoomError, RoomNotFoundError } from '../error/room.error';
 
 @Provide()
+@Scope(ScopeEnum.Singleton)
 export class RoomService {
   @InjectDataSource()
   dataSource: DataSource;
