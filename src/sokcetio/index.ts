@@ -15,9 +15,9 @@
  * 2. 房间的用户列表
  */
 
-import { Provide, Inject } from '@midwayjs/core';
-import { Server, Socket } from 'socket.io';
-import * as http from 'http';
+import { Provide, App, Inject } from '@midwayjs/core';
+import { Application } from '@midwayjs/socketio';
+import { Socket } from 'socket.io';
 import { RoomService } from '../service/room.service';
 import { UserService } from '../service/user.service';
 import { AuthUtil } from '../util/auth.util';
@@ -34,6 +34,7 @@ interface Person {
 
 interface Room {
   id: number;
+  name: string;
   people: Person[];
   messages: Message[];
 }
@@ -57,6 +58,9 @@ const MAX_MESSAGES_HISTORY = 50;
 
 @Provide()
 export class SocketIoService {
+  @App('socketIO')
+  socketApp: Application;
+
   @Inject()
   roomService: RoomService;
 
@@ -66,29 +70,15 @@ export class SocketIoService {
   @Inject()
   authUtil: AuthUtil;
 
-  private io: Server;
-
-  // 初始化 Socket.IO 服务器
-  setupSocketServer(server: http.Server) {
-    this.io = new Server(server, {
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-        credentials: true
-      }
-    });
-
-    // 处理连接
-    this.io.on('connection', (socket: Socket) => {
-      this.handleConnection(socket);
-    });
-
-    console.log('Socket.IO 服务器初始化完成');
-  }
-
   // 初始化房间数据
   async init() {
+    console.log('初始化 Socket.IO 服务');
+    
+    // 设置连接监听
+    this.socketApp.on('connection', (socket: Socket) => {
+      this.handleConnection(socket);
+    });
+    
     // 获取所有房间
     const roomList = await this.roomService.list();
     
@@ -96,6 +86,7 @@ export class SocketIoService {
     for (const room of roomList) {
       rooms.set(room.id, {
         id: room.id,
+        name: room.name,
         people: [],
         messages: []
       });
@@ -171,6 +162,7 @@ export class SocketIoService {
       // 初始化新房间
       rooms.set(roomId, {
         id: roomId,
+        name: roomInfo.name,
         people: [],
         messages: []
       });
@@ -344,7 +336,7 @@ export class SocketIoService {
     this.addMessageToRoom(room, newMessage);
 
     // 广播消息给所有房间成员
-    this.io.to(`room-${roomId}`).emit('newMessage', newMessage);
+    this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', newMessage);
 
     // 如果消息包含关键词，生成机器人回复
     if (message.includes('睡觉') || message.includes('晚安')) {
@@ -355,7 +347,7 @@ export class SocketIoService {
           timestamp: Date.now()
         };
         this.addMessageToRoom(room, botMessage);
-        this.io.to(`room-${roomId}`).emit('newMessage', botMessage);
+        this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', botMessage);
       }, 1000);
     }
   }
@@ -382,7 +374,7 @@ export class SocketIoService {
     };
 
     this.addMessageToRoom(room, systemMessage);
-    this.io.to(`room-${roomId}`).emit('newMessage', systemMessage);
+    this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', systemMessage);
   }
 
   // 处理离开房间

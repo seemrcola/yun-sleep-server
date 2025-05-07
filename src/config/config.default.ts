@@ -20,6 +20,15 @@ export default {
       },
     },
   },
+  socketIO: {
+    port: 7001, // 使用与 HTTP 服务器相同的端口
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+      allowedHeaders: ['Content-Type', 'Authorization'], // 允许的请求头
+      credentials: true // 允许携带凭证
+    },
+  },
   jwt: {
     secret: process.env.JWT_SECRET, // 在实际应用中应该使用环境变量
     expiresIn: '24h',
