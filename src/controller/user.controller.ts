@@ -29,7 +29,7 @@ export class UserController {
 
   @Get('/refresh-token')
   async refreshToken() {
-    const user = this.ctx.state.user;
+    const user = this.ctx.user;
     const newToken = await this.userService.refreshToken(user);
     return { success: true, message: 'Token刷新成功', data: { token: newToken } };
   }

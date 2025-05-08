@@ -21,7 +21,7 @@ export class RoomService {
 
   async create(room: {name: string, description: string, capacity: number}) {
     // 获取到payload中的userId
-    const payload = this.ctx.state.user;
+    const payload = this.ctx.user;
     const userId = payload.userId;
     const username = payload.username;
 
@@ -82,7 +82,7 @@ export class RoomService {
       throw new RoomNotFoundError();
     } 
 
-    if(room.ownerId === this.ctx.state.user.userId) {
+    if(room.ownerId === this.ctx.user.userId) {
       // 如果房间主人离开，则删除房间
       return this.deleteRoom(roomId);
     }
@@ -94,7 +94,7 @@ export class RoomService {
     // 更新用户关联
     const userRepository = this.dataSource.getRepository(User);
     const user = await userRepository.findOne({
-      where: { id: this.ctx.state.user.userId }
+      where: { id: this.ctx.user.userId }
     });
     user.roomId = null;
     await userRepository.save(user);

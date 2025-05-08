@@ -78,8 +78,9 @@ export class UserService {
 
   async getUserInfo() {
     const userRepository = this.dataSource.getRepository(User);
+    console.log(this.ctx.state, '---------');
     const user = await userRepository.findOne({
-      where: { id: this.ctx.state.user.userId }
+      where: { id: this.ctx.user.userId }
     });
 
     return user;
