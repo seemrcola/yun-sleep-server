@@ -22,28 +22,46 @@ import { RoomService } from '../service/room.service';
 import { UserService } from '../service/user.service';
 import { AuthUtil } from '../util/auth.util';
 
+enum ListenerEvent { 
+  JOIN_ROOM = 'joinRoom',
+  UPDATE_POSITION = 'updatePosition',
+  UPDATE_SLEEP_STATE = 'updateSleepState',
+  SEND_MESSAGE = 'sendMessage',
+  LEAVE_ROOM = 'leaveRoom',
+}
+
+enum SocketEvent { 
+  JOIN_ROOM_SUCCESS = 'joinRoomSuccess',
+  PERSON_JOINED = 'personJoined',
+  POSITION_UPDATED = 'positionUpdated',
+  SLEEP_STATE_UPDATED = 'sleepStateUpdated',
+  NEW_MESSAGE = 'newMessage',
+  PERSON_LEFT = 'personLeft',
+  ERROR = 'error'
+}
+
 interface Person {
-  name: string;
-  id: number;
-  x: number;
-  y: number;
-  room: number;
-  isSleeping: boolean;
-  bed: number;
+  name: string; // 人物名称
+  id: number; // 人物id
+  x: number; // 人物x坐标
+  y: number; // 人物y坐标
+  room: number; // 人物所在房间id
+  isSleeping: boolean; // 人物是否睡觉
+  bed: number; // 人物床位号
 }
 
 interface Room {
-  id: number;
-  name: string;
-  people: Person[];
-  messages: Message[];
+  id: number; // 房间id
+  name: string; // 房间名称
+  people: Person[]; // 房间内的人物列表
+  messages: Message[]; // 房间内的人物消息列表
 }
 
 interface Message {
-  type: 'bot' | 'user' | 'system';
+  sender: 'bot' | 'user';
   userId?: number;
   username?: string;
-  data: string;
+  content: string;
   timestamp: number;
 }
 
@@ -117,27 +135,27 @@ export class SocketIoService {
     }
 
     // 监听加入房间事件
-    socket.on('joinRoom', async (data) => {
+    socket.on(ListenerEvent.JOIN_ROOM, async (data) => {
       await this.handleJoinRoom(socket, data, payload);
     });
 
     // 监听更新位置事件
-    socket.on('updatePosition', (data) => {
+    socket.on(ListenerEvent.UPDATE_POSITION, (data) => {
       this.handleUpdatePosition(socket, data);
     });
 
     // 监听睡觉状态变更
-    socket.on('updateSleepState', (data) => {
+    socket.on(ListenerEvent.UPDATE_SLEEP_STATE, (data) => {
       this.handleUpdateSleepState(socket, data);
     });
 
     // 监听发送消息
-    socket.on('sendMessage', (data) => {
+    socket.on(ListenerEvent.SEND_MESSAGE, (data) => {
       this.handleSendMessage(socket, data);
     });
 
     // 监听离开房间
-    socket.on('leaveRoom', async () => {
+    socket.on(ListenerEvent.LEAVE_ROOM, async () => {
       await this.handleLeaveRoom(socket);
     });
 
@@ -203,7 +221,7 @@ export class SocketIoService {
     this.addSystemMessage(roomId, `${username} 加入了房间`);
 
     // 发送成功消息给用户
-    socket.emit('joinRoomSuccess', { 
+    socket.emit(SocketEvent.JOIN_ROOM_SUCCESS, { 
       roomId, 
       person: newPerson,
       people: room.people,
@@ -211,7 +229,7 @@ export class SocketIoService {
     });
 
     // 广播新用户加入消息给其他用户
-    socket.to(`room-${roomId}`).emit('personJoined', { person: newPerson });
+    socket.to(`room-${roomId}`).emit(SocketEvent.PERSON_JOINED, { person: newPerson });
   }
 
   // 处理更新位置
@@ -220,7 +238,7 @@ export class SocketIoService {
     const userInfo = socketUserMap.get(socket.id);
     
     if (!userInfo) {
-      socket.emit('error', { message: '未找到用户信息' });
+      socket.emit(SocketEvent.ERROR, { message: '未找到用户信息' });
       return;
     }
 
@@ -228,7 +246,7 @@ export class SocketIoService {
     const room = rooms.get(roomId);
     
     if (!room) {
-      socket.emit('error', { message: '房间不存在' });
+      socket.emit(SocketEvent.ERROR, { message: '房间不存在' });
       return;
     }
 
@@ -239,7 +257,7 @@ export class SocketIoService {
       person.y = y;
 
       // 广播位置更新
-      socket.to(`room-${roomId}`).emit('positionUpdated', {
+      socket.to(`room-${roomId}`).emit(SocketEvent.POSITION_UPDATED, {
         userId,
         x,
         y
@@ -253,7 +271,7 @@ export class SocketIoService {
     const userInfo = socketUserMap.get(socket.id);
     
     if (!userInfo) {
-      socket.emit('error', { message: '未找到用户信息' });
+      socket.emit(SocketEvent.ERROR, { message: '未找到用户信息' });
       return;
     }
 
@@ -261,7 +279,7 @@ export class SocketIoService {
     const room = rooms.get(roomId);
     
     if (!room) {
-      socket.emit('error', { message: '房间不存在' });
+      socket.emit(SocketEvent.ERROR, { message: '房间不存在' });
       return;
     }
 
@@ -298,7 +316,7 @@ export class SocketIoService {
       }
 
       // 广播睡觉状态更新
-      socket.to(`room-${roomId}`).emit('sleepStateUpdated', {
+      socket.to(`room-${roomId}`).emit(SocketEvent.SLEEP_STATE_UPDATED, {
         userId,
         isSleeping,
         bed: person.bed
@@ -307,12 +325,12 @@ export class SocketIoService {
   }
 
   // 处理发送消息
-  handleSendMessage(socket: Socket, data: { message: string }) {
-    const { message } = data;
+  handleSendMessage(socket: Socket, data: { content: string }) {
+    const { content } = data;
     const userInfo = socketUserMap.get(socket.id);
     
     if (!userInfo) {
-      socket.emit('error', { message: '未找到用户信息' });
+      socket.emit(SocketEvent.ERROR, { message: '未找到用户信息' });
       return;
     }
 
@@ -320,16 +338,16 @@ export class SocketIoService {
     const room = rooms.get(roomId);
     
     if (!room) {
-      socket.emit('error', { message: '房间不存在' });
+      socket.emit(SocketEvent.ERROR, { message: '房间不存在' });
       return;
     }
 
     // 创建用户消息
     const newMessage: Message = {
-      type: 'user',
+      sender: 'user',
       userId,
       username,
-      data: message,
+      content,
       timestamp: Date.now()
     };
 
@@ -338,19 +356,6 @@ export class SocketIoService {
 
     // 广播消息给所有房间成员
     this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', newMessage);
-
-    // 如果消息包含关键词，生成机器人回复
-    if (message.includes('睡觉') || message.includes('晚安')) {
-      setTimeout(() => {
-        const botMessage: Message = {
-          type: 'bot',
-          data: `${username}，祝你有个好梦！`,
-          timestamp: Date.now()
-        };
-        this.addMessageToRoom(room, botMessage);
-        this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', botMessage);
-      }, 1000);
-    }
   }
 
   // 添加消息到房间
@@ -368,14 +373,14 @@ export class SocketIoService {
     const room = rooms.get(roomId);
     if (!room) return;
 
-    const systemMessage: Message = {
-      type: 'system',
-      data: content,
+    const botMessage: Message = {
+      sender: 'bot',
+      content,
       timestamp: Date.now()
     };
 
-    this.addMessageToRoom(room, systemMessage);
-    this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', systemMessage);
+    this.addMessageToRoom(room, botMessage);
+    this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', botMessage);
   }
 
   // 处理离开房间
