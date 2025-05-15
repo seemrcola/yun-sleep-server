@@ -24,8 +24,7 @@ import { AuthUtil } from '../util/auth.util';
 
 enum ListenerEvent { 
   JOIN_ROOM = 'joinRoom',
-  UPDATE_POSITION = 'updatePosition',
-  UPDATE_SLEEP_STATE = 'updateSleepState',
+  CHARACTER_UPDATE = 'characterUpdate',
   SEND_MESSAGE = 'sendMessage',
   LEAVE_ROOM = 'leaveRoom',
 }
@@ -33,21 +32,26 @@ enum ListenerEvent {
 enum SocketEvent { 
   JOIN_ROOM_SUCCESS = 'joinRoomSuccess',
   PERSON_JOINED = 'personJoined',
-  POSITION_UPDATED = 'positionUpdated',
-  SLEEP_STATE_UPDATED = 'sleepStateUpdated',
+  CHARACTER_UPDATED = 'characterUpdated',
   NEW_MESSAGE = 'newMessage',
   PERSON_LEFT = 'personLeft',
   ERROR = 'error'
 }
 
 interface Person {
-  name: string; // 人物名称
   id: number; // 人物id
-  x: number; // 人物x坐标
-  y: number; // 人物y坐标
+  username: string; // 人物名称
   room: number; // 人物所在房间id
-  isSleeping: boolean; // 人物是否睡觉
-  bed: number; // 人物床位号
+  x: number; // 坐标x
+  y: number; // 坐标y
+  width: number; // 角色宽度
+  height: number; // 角色高度
+  speed: number; // 移动速度
+  isSleeping: boolean; // 是否睡觉
+  currentBedIndex: number; // 当前床位号
+  direction: 'down' | 'up' | 'left' | 'right'; // 方向
+  isMoving: boolean; // 是否移动
+  bubbleMessage: string | null; // 气泡消息
 }
 
 interface Room {
@@ -139,14 +143,9 @@ export class SocketIoService {
       await this.handleJoinRoom(socket, data, payload);
     });
 
-    // 监听更新位置事件
-    socket.on(ListenerEvent.UPDATE_POSITION, (data) => {
-      this.handleUpdatePosition(socket, data);
-    });
-
-    // 监听睡觉状态变更
-    socket.on(ListenerEvent.UPDATE_SLEEP_STATE, (data) => {
-      this.handleUpdateSleepState(socket, data);
+    // 监听 更新位置/睡觉状态等 事件 统一是修改用户信息
+    socket.on(ListenerEvent.CHARACTER_UPDATE, (data) => {
+      this.handleUpdateCharacter(socket, data);
     });
 
     // 监听发送消息
@@ -200,17 +199,23 @@ export class SocketIoService {
     // 创建新用户
     const newPerson: Person = {
       id: userId,
-      name: username,
+      username: username,
+      room: roomId,
       x: 100, // 默认位置
       y: 100, // 默认位置
-      room: roomId,
-      isSleeping: false,
-      bed: -1 // -1表示没有分配床位
+      width: 30, // 角色宽度
+      height: 30, // 角色高度
+      speed: 1, // 移动速度
+      isSleeping: false, // 是否睡觉
+      currentBedIndex: -1, // 当前床位号
+      direction: 'down', // 方向
+      isMoving: false, // 是否移动
+      bubbleMessage: null // 气泡消息
     };
 
     // 加入房间
     room.people.push(newPerson);
-    
+
     // 加入socket.io房间
     socket.join(`room-${roomId}`);
     
@@ -228,13 +233,19 @@ export class SocketIoService {
       messages: room.messages
     });
 
-    // 广播新用户加入消息给其他用户
-    socket.to(`room-${roomId}`).emit(SocketEvent.PERSON_JOINED, { person: newPerson });
+    // 广播给房间所有用户
+    this.socketApp
+    .of('/')
+    .to(`room-${roomId}`)
+    .emit(SocketEvent.PERSON_JOINED, { 
+      person: newPerson,
+      people: room.people,
+      messages: room.messages
+    });
   }
 
-  // 处理更新位置
-  handleUpdatePosition(socket: Socket, data: { x: number, y: number }) {
-    const { x, y } = data;
+  // 处理更新位置/睡觉状态等
+  handleUpdateCharacter(socket: Socket, data: Person) {
     const userInfo = socketUserMap.get(socket.id);
     
     if (!userInfo) {
@@ -250,78 +261,20 @@ export class SocketIoService {
       return;
     }
 
-    // 更新用户位置
+    // 更新用户信息
     const person = room.people.find(p => p.id === userId);
     if (person) {
-      person.x = x;
-      person.y = y;
-
-      // 广播位置更新
-      socket.to(`room-${roomId}`).emit(SocketEvent.POSITION_UPDATED, {
-        userId,
-        x,
-        y
-      });
-    }
-  }
-
-  // 处理睡觉状态更新
-  handleUpdateSleepState(socket: Socket, data: { isSleeping: boolean, bed?: number }) {
-    const { isSleeping, bed } = data;
-    const userInfo = socketUserMap.get(socket.id);
-    
-    if (!userInfo) {
-      socket.emit(SocketEvent.ERROR, { message: '未找到用户信息' });
-      return;
+      Object.assign(person, data);
     }
 
-    const { userId, roomId, username } = userInfo;
-    const room = rooms.get(roomId);
-    
-    if (!room) {
-      socket.emit(SocketEvent.ERROR, { message: '房间不存在' });
-      return;
-    }
+    console.log('更新用户信息', roomId, room.people);
 
-    // 更新用户睡觉状态
-    const person = room.people.find(p => p.id === userId);
-    if (person) {
-      person.isSleeping = isSleeping;
-      
-      // 如果提供了床位号且正在睡觉，更新床位
-      if (isSleeping && bed !== undefined) {
-        // 检查床位是否已被占用
-        const bedOccupied = room.people.some(p => 
-          p.id !== userId && p.isSleeping && p.bed === bed
-        );
-        
-        if (bedOccupied) {
-          socket.emit('error', { message: '该床位已被占用' });
-          return;
-        }
-        
-        person.bed = bed;
-        
-        // 添加系统消息
-        this.addSystemMessage(roomId, `${username} 开始在床位 ${bed} 上睡觉`);
-      } else if (!isSleeping) {
-        // 如果不睡觉了，释放床位
-        const oldBed = person.bed;
-        person.bed = -1;
-        
-        // 添加系统消息
-        if (oldBed !== -1) {
-          this.addSystemMessage(roomId, `${username} 从床位 ${oldBed} 起床了`);
-        }
-      }
-
-      // 广播睡觉状态更新
-      socket.to(`room-${roomId}`).emit(SocketEvent.SLEEP_STATE_UPDATED, {
-        userId,
-        isSleeping,
-        bed: person.bed
-      });
-    }
+    // 广播给房间所有用户
+    this.socketApp.of('/').to(`room-${roomId}`).emit(SocketEvent.CHARACTER_UPDATED, {
+      person: person,
+      people: room.people,
+      messages: room.messages
+    });
   }
 
   // 处理发送消息
