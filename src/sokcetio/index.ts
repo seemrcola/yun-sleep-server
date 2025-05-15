@@ -149,7 +149,7 @@ export class SocketIoService {
     });
 
     // 监听发送消息
-    socket.on(ListenerEvent.SEND_MESSAGE, (data) => {
+    socket.on(ListenerEvent.SEND_MESSAGE, (data: { content: string }) => {
       this.handleSendMessage(socket, data);
     });
 
@@ -308,8 +308,27 @@ export class SocketIoService {
     // 添加消息到房间
     this.addMessageToRoom(room, newMessage);
 
-    // 广播消息给所有房间成员
-    this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', newMessage);
+    // 改变对应character的bubbleMessage
+    const character = room.characters.find(p => p.id === userId);
+    if (character) {
+      character.bubbleMessage = content;
+    }
+
+    // 广播消息给所有房间成员消息
+    this.socketApp
+    .of('/')
+    .to(`room-${roomId}`)
+    .emit(SocketEvent.NEW_MESSAGE, newMessage);
+
+    // 广播给所有房间成员 更新人物信息
+    this.socketApp
+    .of('/')
+    .to(`room-${roomId}`)
+    .emit(SocketEvent.CHARACTER_UPDATED, {
+      character: character,
+      characters: room.characters,
+      messages: room.messages
+    });
   }
 
   // 添加消息到房间
