@@ -38,7 +38,7 @@ enum SocketEvent {
   ERROR = 'error'
 }
 
-interface Person {
+interface Character {
   id: number; // 人物id
   username: string; // 人物名称
   room: number; // 人物所在房间id
@@ -57,7 +57,7 @@ interface Person {
 interface Room {
   id: number; // 房间id
   name: string; // 房间名称
-  people: Person[]; // 房间内的人物列表
+  characters: Character[]; // 房间内的人物列表
   messages: Message[]; // 房间内的人物消息列表
 }
 
@@ -110,7 +110,7 @@ export class SocketIoService {
       rooms.set(room.id, {
         id: room.id,
         name: room.name,
-        people: [],
+        characters: [],
         messages: []
       });
     }
@@ -181,7 +181,7 @@ export class SocketIoService {
       rooms.set(roomId, {
         id: roomId,
         name: roomInfo.name,
-        people: [],
+        characters: [],
         messages: []
       });
     }
@@ -190,14 +190,14 @@ export class SocketIoService {
     const room = rooms.get(roomId);
 
     // 检查用户是否已在此房间
-    const existingPerson = room.people.find(p => p.id === userId);
-    if (existingPerson) {
+    const existingCharacter = room.characters.find(p => p.id === userId);
+    if (existingCharacter) {
       socket.emit('error', { message: '你已经在该房间中' });
       return;
     }
 
     // 创建新用户
-    const newPerson: Person = {
+    const newCharacter: Character = {
       id: userId,
       username: username,
       room: roomId,
@@ -214,7 +214,7 @@ export class SocketIoService {
     };
 
     // 加入房间
-    room.people.push(newPerson);
+    room.characters.push(newCharacter);
 
     // 加入socket.io房间
     socket.join(`room-${roomId}`);
@@ -228,8 +228,8 @@ export class SocketIoService {
     // 发送成功消息给用户
     socket.emit(SocketEvent.JOIN_ROOM_SUCCESS, { 
       roomId, 
-      person: newPerson,
-      people: room.people,
+      character: newCharacter,
+      characters: room.characters,
       messages: room.messages
     });
 
@@ -238,14 +238,14 @@ export class SocketIoService {
     .of('/')
     .to(`room-${roomId}`)
     .emit(SocketEvent.PERSON_JOINED, { 
-      person: newPerson,
-      people: room.people,
+      character: newCharacter,
+      characters: room.characters,
       messages: room.messages
     });
   }
 
   // 处理更新位置/睡觉状态等
-  handleUpdateCharacter(socket: Socket, data: Person) {
+  handleUpdateCharacter(socket: Socket, data: Partial<Character>) {
     const userInfo = socketUserMap.get(socket.id);
     
     if (!userInfo) {
@@ -262,17 +262,15 @@ export class SocketIoService {
     }
 
     // 更新用户信息
-    const person = room.people.find(p => p.id === userId);
-    if (person) {
-      Object.assign(person, data);
+    const character = room.characters.find(p => p.id === userId);
+    if (character) {
+      Object.assign(character, data);
     }
-
-    console.log('更新用户信息', roomId, room.people);
 
     // 广播给房间所有用户
     this.socketApp.of('/').to(`room-${roomId}`).emit(SocketEvent.CHARACTER_UPDATED, {
-      person: person,
-      people: room.people,
+      character: character,
+      characters: room.characters,
       messages: room.messages
     });
   }
@@ -364,9 +362,9 @@ export class SocketIoService {
     if (!room) return;
 
     // 从房间中移除用户
-    const personIndex = room.people.findIndex(p => p.id === userId);
-    if (personIndex !== -1) {
-      room.people.splice(personIndex, 1);
+    const characterIndex = room.characters.findIndex(p => p.id === userId);
+    if (characterIndex !== -1) {
+      room.characters.splice(characterIndex, 1);
       
       // 离开socket.io房间
       socket.leave(`room-${roomId}`);
