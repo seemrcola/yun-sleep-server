@@ -268,7 +268,10 @@ export class SocketIoService {
     }
 
     // 广播给房间所有用户
-    this.socketApp.of('/').to(`room-${roomId}`).emit(SocketEvent.CHARACTER_UPDATED, {
+    this.socketApp
+    .of('/')
+    .to(`room-${roomId}`)
+    .emit(SocketEvent.CHARACTER_UPDATED, {
       character: character,
       characters: room.characters,
       messages: room.messages
@@ -331,7 +334,11 @@ export class SocketIoService {
     };
 
     this.addMessageToRoom(room, botMessage);
-    this.socketApp.of('/').to(`room-${roomId}`).emit('newMessage', botMessage);
+    console.log('添加系统消息', botMessage, room);
+    this.socketApp
+      .of('/')
+      .to(`room-${roomId}`)
+      .emit(SocketEvent.NEW_MESSAGE, botMessage);
   }
 
   // 处理离开房间
