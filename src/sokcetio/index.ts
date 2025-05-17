@@ -333,11 +333,14 @@ export class SocketIoService {
 
   // 添加消息到房间
   private addMessageToRoom(room: Room, message: Message) {
-    room.messages.push(message);
-    
+    const content = message.content;
+    if (content) {
+      room.messages.push(message);
+      
     // 限制消息历史数量
     if (room.messages.length > MAX_MESSAGES_HISTORY) {
-      room.messages = room.messages.slice(room.messages.length - MAX_MESSAGES_HISTORY);
+        room.messages = room.messages.slice(room.messages.length - MAX_MESSAGES_HISTORY);
+      }
     }
   }
 
