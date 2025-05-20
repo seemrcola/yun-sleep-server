@@ -1,7 +1,7 @@
 {
-  "name": "my-midway-project",
+  "name": "yun-sleep-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "赛博睡觉服务器",
   "private": true,
   "dependencies": {
     "@koa/cors": "^5.0.0",

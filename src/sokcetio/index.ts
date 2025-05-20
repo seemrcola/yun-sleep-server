@@ -103,7 +103,7 @@ export class SocketIoService {
     });
     
     // 获取所有房间
-    const roomList = await this.roomService.list();
+    const roomList = await this.handleGetRoomList();
     
     // 初始化房间数据结构
     for (const room of roomList) {
@@ -171,7 +171,7 @@ export class SocketIoService {
 
     // 检查房间是否存在
     if (!rooms.has(roomId)) {
-      const roomInfo = await this.roomService.getRoomById(roomId);
+      const roomInfo = await this.handleGetRoomInfo(roomId);
       if (!roomInfo) {
         socket.emit('error', { message: '房间不存在' });
         return;
@@ -242,6 +242,9 @@ export class SocketIoService {
       characters: room.characters,
       messages: room.messages
     });
+
+    // 数据库房间人数+1
+    this.handleRoomCurrentChange(socket, roomId, 'add');
   }
 
   // 处理更新位置/睡觉状态等
@@ -370,6 +373,9 @@ export class SocketIoService {
 
     const { userId, roomId, username } = userInfo;
     await this.removePersonFromRoom(socket, userId, roomId, username);
+
+    // 数据库房间人数-1
+    this.handleRoomCurrentChange(socket, roomId, 'sub');
   }
 
   // 处理断开连接
@@ -405,6 +411,51 @@ export class SocketIoService {
       socket.to(`room-${roomId}`).emit('personLeft', { userId });
       
       console.log(`用户 ${userId} 离开房间 ${roomId}`);
+    }
+
+    // 数据库房间人数-1
+    this.handleRoomCurrentChange(socket, roomId, 'sub');
+  }
+
+  /** ============================服务器操作============================ */
+  // 获取房间列表
+  async handleGetRoomList() {
+    try{
+      const roomList = await this.roomService.list();
+      return roomList || [];
+    } catch(e) {
+      console.error('[pg in socket] 获取房间列表失败', e);
+      return [];
+    }
+  }
+
+  // 获取房间信息
+  async handleGetRoomInfo(roomId: number) {
+    try{
+      const roomInfo = await this.roomService.getRoomById(roomId);
+      return roomInfo || null;
+    } catch(e) {
+      console.error('[pg in socket] 获取房间信息失败', e);
+      return null;
+    }
+  }
+
+  // 处理数据库房间人数变化
+  async handleRoomCurrentChange(socket: Socket, roomId: number, type: 'add' | 'sub') {
+    try{
+      const roomInfo = await this.roomService.getRoomById(roomId);
+      if(!roomInfo) {
+        socket.emit(SocketEvent.ERROR, { message: '[pg in socket] 房间不存在' });
+        return;
+      }
+      await this.roomService.updateRoom(roomId, 
+        { current: type === 'add' 
+            ? roomInfo.current + 1 
+            : roomInfo.current - 1 
+        }
+      );
+    } catch(e) {
+      console.error('[pg in socket] 更新房间人数失败', e);
     }
   }
 }

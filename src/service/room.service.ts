@@ -62,7 +62,6 @@ export class RoomService {
     const roomRepository = this.dataSource.getRepository(Room);
     const room = await roomRepository.findOne({
       where: { id },
-      // relations: ['users']
     });
 
     if(!room) {
@@ -126,5 +125,17 @@ export class RoomService {
       success: true,
       message: '房间删除成功'
     }
+  }
+
+  async updateRoom(roomId: number, data: Partial<Room>) {
+    const roomRepository = this.dataSource.getRepository(Room);
+    const room = await roomRepository.findOne({
+      where: { id: roomId }
+    });
+    if(!room) {
+      throw new RoomNotFoundError();
+    }
+    await roomRepository.update(roomId, data);
+    return room;
   }
 }

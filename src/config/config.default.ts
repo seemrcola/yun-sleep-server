@@ -31,6 +31,6 @@ export default {
   },
   jwt: {
     secret: process.env.JWT_SECRET, // 在实际应用中应该使用环境变量
-    expiresIn: '24h',
+    expiresIn: '1d',
   },
 } as MidwayConfig;
